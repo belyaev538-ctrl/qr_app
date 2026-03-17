@@ -13,7 +13,7 @@ export function PageHeader({ title, onRefresh }: PageHeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white pl-5 pr-4 py-3">
       <div className="flex items-center justify-between">
-        <h1 className="flex-1 text-left text-lg font-semibold leading-[17px] text-slate-800">
+        <h1 className="flex-1 text-left text-[15px] font-semibold leading-[17px] text-slate-800">
           {title}
         </h1>
         <div className="flex w-20 justify-end gap-1">

@@ -456,7 +456,7 @@ export default function PickingPage() {
               type="button"
               onClick={handleFinish}
               disabled={finishing}
-              className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-full px-4 text-[12px] font-semibold text-white shadow disabled:opacity-50"
+              className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-full px-4 text-[10px] font-semibold text-white shadow disabled:opacity-50"
               style={{ backgroundColor: '#22C55E' }}
             >
               {finishing ? 'Завершение...' : 'ЗАВЕРШИТЬ ЗАКАЗ'}
@@ -477,7 +477,7 @@ export default function PickingPage() {
                   order.status === 'collecting'
                     ? '#081B42'
                     : '#FFFFFF',
-                fontSize: 12,
+                fontSize: 10,
               }}
             >
               {order.status === 'collecting' && (
@@ -555,10 +555,10 @@ export default function PickingPage() {
               return (
                 <div key={item.id} className="flex flex-col">
                 <div
-                  className="flex items-center gap-4 rounded-xl bg-white p-4"
+                  className="flex items-center gap-2 rounded-xl bg-white p-3"
                 >
                   <div
-                    className="relative h-[157px] w-[157px] shrink-0 overflow-hidden rounded-lg bg-white"
+                    className="relative h-[132px] w-[132px] shrink-0 overflow-hidden rounded-lg bg-white"
                     role="button"
                     tabIndex={0}
                     onClick={() =>
@@ -579,9 +579,9 @@ export default function PickingPage() {
                     <img
                       src={item.product_image || '/placeholder.png'}
                       alt={item.product_name}
-                      width={157}
-                      height={157}
-                      className="h-[157px] w-[157px] cursor-zoom-in object-contain p-2"
+                      width={132}
+                      height={132}
+                      className="h-[132px] w-[132px] cursor-zoom-in object-contain p-2"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
                           'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"%3E%3Crect fill="%23e5e7eb" width="80" height="80"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af" font-size="12"%3E?%3C/text%3E%3C/svg%3E';
@@ -607,13 +607,13 @@ export default function PickingPage() {
                       </svg>
                     </button>
                   </div>
-                  <div className="flex min-h-[157px] min-w-0 flex-1 flex-col justify-center">
+                  <div className="flex min-h-[132px] min-w-0 flex-1 flex-col justify-center">
                     <p className="font-medium text-gray-900">{item.product_name}</p>
                     <p className="mt-0.5 text-sm text-gray-600">
                       Кол-во: <span className="font-bold" style={{ fontSize: 24, color: '#081A3F' }}>{item.quantity}</span> {item.unit}
                     </p>
                     {isProcessed ? (
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-3 flex items-center gap-1">
                         {item.status === 'collected' && (
                           <button
                             type="button"
@@ -666,7 +666,7 @@ export default function PickingPage() {
                           type="button"
                           onClick={() => handleOutOfStock(item.id)}
                           disabled={busy}
-                          className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 transition hover:bg-rose-200 disabled:opacity-50"
+                          className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 transition hover:bg-rose-200 disabled:opacity-50"
                           title="Нет в наличии"
                         >
                           <span
@@ -680,12 +680,12 @@ export default function PickingPage() {
                             }}
                           />
                         </button>
-                        <div className="flex h-[50px] w-[150px] items-center gap-0.5 rounded-full border border-blue-200 bg-white px-0.5 py-0.5">
+                        <div className="flex h-[44px] w-[108px] items-center gap-0.5 rounded-full border border-blue-200 bg-white px-0.5 py-0.5">
                           <button
                             type="button"
                             onClick={() => handleQuantityChange(item, -1)}
                             disabled={busy || (item.quantity_collected ?? 0) <= 0}
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-800 transition hover:bg-blue-100 disabled:opacity-40 disabled:hover:bg-blue-50"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-800 transition hover:bg-blue-100 disabled:opacity-40 disabled:hover:bg-blue-50"
                           >
                             −
                           </button>
@@ -694,7 +694,7 @@ export default function PickingPage() {
                             min={0}
                             max={item.quantity}
                             inputMode="numeric"
-                            className="min-w-[32px] flex-1 border-0 bg-transparent text-center text-base font-bold text-blue-900 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            className="min-w-[28px] flex-1 border-0 bg-transparent text-center text-sm font-bold text-blue-900 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             value={editingQuantity?.itemId === item.id ? editingQuantity.value : String(item.quantity_collected ?? 0)}
                             onFocus={() => setEditingQuantity({ itemId: item.id, value: String(item.quantity_collected ?? 0) })}
                             onChange={(e) => setEditingQuantity((p) => (p?.itemId === item.id ? { ...p, value: e.target.value } : p))}
@@ -706,7 +706,7 @@ export default function PickingPage() {
                             type="button"
                             onClick={() => handleQuantityChange(item, 1)}
                             disabled={busy || (item.quantity_collected ?? 0) >= item.quantity}
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-800 transition hover:bg-blue-100 disabled:opacity-40 disabled:hover:bg-blue-50"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-800 transition hover:bg-blue-100 disabled:opacity-40 disabled:hover:bg-blue-50"
                           >
                             +
                           </button>
@@ -715,7 +715,7 @@ export default function PickingPage() {
                           type="button"
                           onClick={() => handleCollectAll(item)}
                           disabled={busy || (item.quantity_collected ?? 0) >= item.quantity}
-                          className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-[#EAF3D9] text-[#90B94E] transition hover:bg-[#DDECC2] disabled:opacity-50"
+                          className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full bg-[#EAF3D9] text-[#90B94E] transition hover:bg-[#DDECC2] disabled:opacity-50"
                           title="Собрать всё"
                         >
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
