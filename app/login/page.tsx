@@ -39,18 +39,23 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#081A3F] px-4 pt-6">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-35 blur-[300px]"
+        style={{ backgroundColor: '#0095FF' }}
+      />
       <p className="absolute left-0 right-0 top-4 text-center text-xs text-white">Click & collect</p>
-      <div className="relative mb-4 flex justify-center">
+      <div className="relative z-10 mb-4 flex justify-center">
         <img src="/basket-icon.png" alt="Click & collect" className="h-[120px] w-[150px] object-contain" />
       </div>
-      <h1 className="text-center text-2xl font-bold text-white">
+      <h1 className="relative z-10 text-center text-2xl font-bold text-white">
         Управление заказами
       </h1>
-      <p className="mt-2 text-center text-sm text-slate-400">
+      <p className="relative z-10 mt-2 text-center text-sm text-slate-400">
         Приложение сотрудников магазина
       </p>
 
-      <div className="mt-8 w-full max-w-sm px-6 py-6">
+      <div className="relative z-10 mt-8 w-full max-w-sm px-6 py-6">
         <h2 className="text-center text-2xl font-bold text-white">
           Авторизуйтесь
         </h2>
