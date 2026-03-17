@@ -252,7 +252,7 @@ export function OrderCard({
           {showDoneButton && order.status === 'collected' && onMarkDone && (
             <button
               type="button"
-              className={`mt-[36px] flex w-full items-center rounded-full bg-[#90B94E] pl-4 pr-[18px] font-bold text-white ${compact ? 'h-12 text-xs' : 'h-[60px] text-sm'}`}
+              className={`mt-[36px] flex w-full items-center rounded-full bg-[#90B94E] pl-4 pr-[18px] text-[12px] font-bold text-white ${compact ? 'h-12' : 'h-[60px]'}`}
               style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -273,7 +273,7 @@ export function OrderCard({
           {isDoneOrder && onCardClick && (
             <button
               type="button"
-              className={`mt-[36px] flex w-full items-center rounded-full border-2 border-[#90B94E] bg-[#FFFFFF] pl-4 pr-[18px] font-bold text-[#90B94E] transition-colors hover:border-[#7EA53F] hover:bg-[#90B94E] hover:text-white ${compact ? 'h-12 text-xs' : 'h-[60px] text-sm'}`}
+              className={`mt-[36px] flex w-full items-center rounded-full border-2 border-[#90B94E] bg-[#FFFFFF] pl-4 pr-[18px] text-[12px] font-bold text-[#90B94E] transition-colors hover:border-[#7EA53F] hover:bg-[#90B94E] hover:text-white ${compact ? 'h-12' : 'h-[60px]'}`}
               style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -294,7 +294,7 @@ export function OrderCard({
           {showDetailsButton && !isDoneOrder && onCardClick && (
             <button
               type="button"
-              className={`mt-[36px] flex w-full items-center rounded-full border-2 border-[#90B94E] bg-[#FFFFFF] pl-4 pr-[18px] font-bold text-[#90B94E] transition-colors hover:border-[#7EA53F] hover:bg-[#90B94E] hover:text-white ${compact ? 'h-12 text-xs' : 'h-[60px] text-sm'}`}
+              className={`mt-[36px] flex w-full items-center rounded-full border-2 border-[#90B94E] bg-[#FFFFFF] pl-4 pr-[18px] text-[12px] font-bold text-[#90B94E] transition-colors hover:border-[#7EA53F] hover:bg-[#90B94E] hover:text-white ${compact ? 'h-12' : 'h-[60px]'}`}
               style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -315,7 +315,7 @@ export function OrderCard({
           {showStartButton && (onStartPicking || onCardClick || order.status === 'collecting') && (
             order.status === 'collecting' && order.picker_id === currentPickerId ? (
               <div
-                className={`mt-[36px] flex w-full cursor-pointer items-center rounded-full pl-4 pr-[18px] font-bold text-[#0C58FE] ${compact ? 'h-12 text-xs' : 'h-[60px] text-sm'}`}
+                className={`mt-[36px] flex w-full cursor-pointer items-center rounded-full pl-4 pr-[18px] text-[12px] font-bold text-[#0C58FE] ${compact ? 'h-12' : 'h-[60px]'}`}
                 style={{ fontFamily: '__Open_Sans_Fallback_e8b307', backgroundColor: '#CFDEFF' }}
                 role="button"
                 tabIndex={0}
@@ -333,7 +333,7 @@ export function OrderCard({
               </div>
             ) : order.status === 'collecting' ? (
               <div
-                className={`mt-[36px] flex w-full cursor-default items-center justify-center rounded-full border-2 border-[#A3BFFA] bg-[#CFDEFF] pl-4 pr-[18px] font-semibold text-[#0C58FE] opacity-30 ${compact ? 'h-12 text-[clamp(10px,0.85vw,12px)]' : 'h-[60px] text-sm'}`}
+                className={`mt-[36px] flex w-full cursor-default items-center justify-center rounded-full border-2 border-[#A3BFFA] bg-[#CFDEFF] pl-4 pr-[18px] text-[12px] font-semibold text-[#0C58FE] opacity-30 ${compact ? 'h-12' : 'h-[60px]'}`}
                 style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               >
                 <span className={`text-center ${compact ? 'leading-tight' : 'whitespace-nowrap'}`}>ЗАКАЗ УЖЕ СОБИРАЮТ</span>
@@ -341,7 +341,7 @@ export function OrderCard({
             ) : (
               <button
                 type="button"
-                className={`mt-[36px] flex w-full items-center rounded-full bg-[#007BFF] pl-4 pr-[18px] font-bold text-white shadow-md hover:bg-[#0069d9] active:bg-[#0056b3] ${compact ? 'h-12 text-[clamp(10px,0.85vw,12px)]' : 'h-[60px] text-sm'}`}
+                className={`mt-[36px] flex w-full items-center rounded-full bg-[#007BFF] pl-4 pr-[18px] text-[12px] font-bold text-white shadow-md hover:bg-[#0069d9] active:bg-[#0056b3] ${compact ? 'h-12' : 'h-[60px]'}`}
                 style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               >
                 <span className={`flex min-w-0 flex-1 items-center justify-center text-center ${compact ? 'leading-tight' : 'whitespace-nowrap'}`}>{buttonLabel}</span>

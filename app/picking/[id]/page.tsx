@@ -293,7 +293,7 @@ export default function PickingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-[#0A1929]">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex min-h-[240px] flex-col gap-4 border-b border-white/10 bg-[#081A3F] px-4 pt-4 pb-5">
+      <header className="z-10 flex min-h-[240px] flex-col gap-4 border-b border-white/10 bg-[#081A3F] px-4 pt-4 pb-5">
         {/* Top: Назад + СРОЧНЫЙ */}
         <div className="flex min-h-[46px] items-center justify-between border-b border-[#5C73A1] pb-4">
           <button
@@ -439,7 +439,7 @@ export default function PickingPage() {
           {/* Main status button */}
           {order.status === 'not_started' ? (
             <div
-              className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-full px-4 text-[12px] font-semibold text-white"
+              className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-full px-4 text-[10px] font-semibold text-white"
               style={{ backgroundColor: statusStyle.bg }}
             >
               <Image
