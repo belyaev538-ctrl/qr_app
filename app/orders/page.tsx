@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToQueueOrders } from '../../lib/firestore';
-import { subscribeToCollectingOrders, subscribeToCompletedOrders } from '../../services/orders.service';
+import { markOrderDone, subscribeToCollectingOrders, subscribeToCompletedOrders } from '../../services/orders.service';
 import { OrderCard } from '../../components/OrderCard';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeaderNew';
@@ -20,10 +21,9 @@ export default function OrdersQueuePage() {
   const [loadingQueue, setLoadingQueue] = useState(true);
   const [loadingCollecting, setLoadingCollecting] = useState(true);
   const [loadingCompleted, setLoadingCompleted] = useState(true);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [desktopWidths, setDesktopWidths] = useState<number[]>([25, 25, 25, 25]);
-  const [collapsedCols, setCollapsedCols] = useState<boolean[]>([false, false, false, false]);
-  const desktopContainerRef = useRef<HTMLDivElement | null>(null);
+  const [desktopOverlayOrderId, setDesktopOverlayOrderId] = useState<string | null>(null);
+  const [markingDoneId, setMarkingDoneId] = useState<string | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (isLoading) return;
@@ -82,21 +82,6 @@ export default function OrdersQueuePage() {
     [queueOrders],
   );
 
-  const desktopAllOrders = useMemo(
-    () => [...sortedQueueOrders, ...collectingOrders, ...completedOrders],
-    [sortedQueueOrders, collectingOrders, completedOrders],
-  );
-
-  useEffect(() => {
-    if (desktopAllOrders.length === 0) {
-      setSelectedOrderId(null);
-      return;
-    }
-    if (!selectedOrderId || !desktopAllOrders.some((o) => o.id === selectedOrderId)) {
-      setSelectedOrderId(desktopAllOrders[0].id);
-    }
-  }, [desktopAllOrders, selectedOrderId]);
-
   const loadOrders = () => {
     // Данные обновляются в реальном времени через onSnapshot
   };
@@ -105,62 +90,30 @@ export default function OrdersQueuePage() {
     router.push(`/picking/${order.id}`);
   }
 
-  function startResize(dividerIndex: number, event: React.MouseEvent<HTMLDivElement>) {
-    if (collapsedCols[dividerIndex] || collapsedCols[dividerIndex + 1]) return;
-    event.preventDefault();
-    const container = desktopContainerRef.current;
-    if (!container) return;
-
-    const startX = event.clientX;
-    const startWidths = [...desktopWidths];
-    const minWidthPercent = 15;
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const containerWidth = container.getBoundingClientRect().width;
-      if (containerWidth <= 0) return;
-      const deltaPercent = (dx / containerWidth) * 100;
-
-      let left = startWidths[dividerIndex] + deltaPercent;
-      let right = startWidths[dividerIndex + 1] - deltaPercent;
-
-      if (left < minWidthPercent) {
-        right -= minWidthPercent - left;
-        left = minWidthPercent;
-      }
-      if (right < minWidthPercent) {
-        left -= minWidthPercent - right;
-        right = minWidthPercent;
-      }
-      if (left < minWidthPercent || right < minWidthPercent) return;
-
-      const next = [...startWidths];
-      next[dividerIndex] = left;
-      next[dividerIndex + 1] = right;
-      setDesktopWidths(next);
-    };
-
-    const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-  }
-
-  function toggleColumn(index: number) {
-    setCollapsedCols((prev) => {
-      const openCount = prev.filter((v) => !v).length;
-      if (!prev[index] && openCount <= 1) return prev;
-      return prev.map((v, i) => (i === index ? !v : v));
-    });
-  }
-
   function handleDesktopSelect(orderId: string) {
-    setSelectedOrderId(orderId);
-    setCollapsedCols((prev) => (prev[3] ? prev.map((v, i) => (i === 3 ? false : v)) : prev));
+    setDesktopOverlayOrderId(orderId);
   }
+
+  async function handleMarkDone(orderId: string) {
+    if (markingDoneId) return;
+    setMarkingDoneId(orderId);
+    try {
+      await markOrderDone(orderId);
+    } finally {
+      setMarkingDoneId(null);
+    }
+  }
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if ((event.data as { type?: string } | null)?.type === 'close-order-overlay') {
+        setDesktopOverlayOrderId(null);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   if (isLoading || !firebaseUser) return null;
 
@@ -170,142 +123,61 @@ export default function OrdersQueuePage() {
         <PageHeader title="Очередь заказов на сборку" onRefresh={loadOrders} />
       </div>
 
-      <div className="hidden lg:flex lg:min-h-screen lg:flex-col">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-[#081A3F] px-5 py-4">
-          <h1 className="text-xl font-bold text-white">Рабочий стол сборки</h1>
-          <div className="flex items-center gap-2">
-            {collapsedCols[0] && (
-              <button
-                type="button"
-                onClick={() => toggleColumn(0)}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-              >
-                Показать: Очередь
-              </button>
-            )}
-            {collapsedCols[1] && (
-              <button
-                type="button"
-                onClick={() => toggleColumn(1)}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-              >
-                Показать: Я собираю
-              </button>
-            )}
-            {collapsedCols[2] && (
-              <button
-                type="button"
-                onClick={() => toggleColumn(2)}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-              >
-                Показать: Собраны
-              </button>
-            )}
-            {collapsedCols[3] && (
-              <button
-                type="button"
-                onClick={() => toggleColumn(3)}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
-              >
-                Показать: Детали
-              </button>
-            )}
+      <div className="hidden lg:block lg:min-h-screen lg:bg-[#081A3F]">
+        <aside className="fixed left-0 top-0 z-20 flex h-screen w-20 flex-col items-center border-r border-white/10 bg-[#081A3F] pt-2">
+          <nav className="mt-2 flex flex-col items-center">
+            <DesktopNavButton
+              href="/orders"
+              label="Дашбор"
+              active={pathname === '/orders'}
+              icon={<DesktopDashboardIcon />}
+            />
+            <span className="my-2 h-px w-10 bg-[#5C73A1]/30" aria-hidden />
+            <DesktopNavButton
+              href="/orders/mine"
+              label="Мои"
+              active={pathname === '/orders/mine'}
+              icon={<DesktopUserIcon />}
+            />
+            <span className="my-2 h-px w-10 bg-[#5C73A1]/30" aria-hidden />
+            <DesktopNavButton
+              href="/settings"
+              label="Настройки"
+              active={pathname === '/settings'}
+              icon={<DesktopSettingsIcon />}
+            />
+          </nav>
+        </aside>
+
+        <div className="ml-20 min-h-screen bg-white px-[30px] py-6">
+          <div className="mb-4">
+            <h1 className="text-xl font-bold text-[#081A3F]">Дашборд заказов</h1>
           </div>
-        </div>
-        <div ref={desktopContainerRef} className="flex min-h-0 flex-1 bg-[#081A3F] p-4">
-          <div
-            className="min-w-0 pr-2"
-            style={{
-              display: collapsedCols[0] ? 'none' : 'block',
-              minWidth: 0,
-              flex: `${desktopWidths[0]} 1 0%`,
-            }}
-          >
+          <div className="grid min-h-[calc(100vh-88px)] grid-cols-3 gap-x-[15px]">
             <DesktopOrdersColumn
               title="Очередь"
               loading={loadingQueue}
               orders={sortedQueueOrders}
-              selectedOrderId={selectedOrderId}
               onSelect={handleDesktopSelect}
               currentPickerId={firebaseUser?.uid}
-              onToggleCollapse={() => toggleColumn(0)}
             />
-          </div>
-          {!collapsedCols[0] && !collapsedCols[1] && <DesktopResizeHandle onMouseDown={(e) => startResize(0, e)} />}
-
-          <div
-            className="min-w-0 px-2"
-            style={{
-              display: collapsedCols[1] ? 'none' : 'block',
-              minWidth: 0,
-              flex: `${desktopWidths[1]} 1 0%`,
-            }}
-          >
             <DesktopOrdersColumn
               title="Я собираю"
               loading={loadingCollecting}
               orders={collectingOrders}
-              selectedOrderId={selectedOrderId}
               onSelect={handleDesktopSelect}
               currentPickerId={firebaseUser?.uid}
-              onToggleCollapse={() => toggleColumn(1)}
             />
-          </div>
-          {!collapsedCols[1] && !collapsedCols[2] && <DesktopResizeHandle onMouseDown={(e) => startResize(1, e)} />}
-
-          <div
-            className="min-w-0 px-2"
-            style={{
-              display: collapsedCols[2] ? 'none' : 'block',
-              minWidth: 0,
-              flex: `${desktopWidths[2]} 1 0%`,
-            }}
-          >
             <DesktopOrdersColumn
               title="Собраны"
               loading={loadingCompleted}
               orders={completedOrders}
-              selectedOrderId={selectedOrderId}
               onSelect={handleDesktopSelect}
               currentPickerId={firebaseUser?.uid}
-              onToggleCollapse={() => toggleColumn(2)}
+              onMarkDone={handleMarkDone}
+              markingDoneId={markingDoneId}
             />
           </div>
-          {!collapsedCols[2] && !collapsedCols[3] && <DesktopResizeHandle onMouseDown={(e) => startResize(2, e)} />}
-
-          <section
-            className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-2 pl-2"
-            style={{
-              display: collapsedCols[3] ? 'none' : 'flex',
-              minWidth: 0,
-              flex: `${desktopWidths[3]} 1 0%`,
-            }}
-          >
-            <div className="mb-2 flex w-full items-center justify-between px-1">
-              <h2 className="text-[32px] font-bold leading-none text-[#081A3F]">Детали заказа</h2>
-              <button
-                type="button"
-                onClick={() => toggleColumn(3)}
-                className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
-                title="Закрыть колонку"
-              >
-                <span className="text-base leading-none">×</span>
-              </button>
-            </div>
-            <div className="min-h-0 flex-1">
-              {selectedOrderId ? (
-                <iframe
-                  title={`order-${selectedOrderId}`}
-                  src={`/picking/${selectedOrderId}`}
-                  className="h-full w-full rounded-xl border border-slate-200 bg-white"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-sm text-slate-500">
-                  Выберите заказ из колонок слева
-                </div>
-              )}
-            </div>
-          </section>
         </div>
       </div>
 
@@ -347,20 +219,52 @@ export default function OrdersQueuePage() {
       <div className="lg:hidden">
         <BottomNav />
       </div>
+      {desktopOverlayOrderId && (
+        <div
+          className="hidden lg:block"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="fixed inset-0 z-40 bg-[#08266A]/33 backdrop-blur-[12px]"
+            onClick={() => setDesktopOverlayOrderId(null)}
+          />
+          <aside className="fixed right-0 top-0 z-50 h-screen w-1/2 min-w-[560px] bg-white shadow-2xl">
+            <iframe
+              title={`order-overlay-${desktopOverlayOrderId}`}
+              src={`/picking/${desktopOverlayOrderId}?desktopOverlay=1`}
+              className="h-full w-full border-0"
+            />
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
 
-function DesktopResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void }) {
+function DesktopNavButton({
+  href,
+  label,
+  icon,
+  active,
+}: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+}) {
   return (
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      onMouseDown={onMouseDown}
-      className="group relative w-2 cursor-col-resize"
+    <Link
+      href={href}
+      className={`flex h-14 w-14 flex-col items-center justify-center gap-1 rounded-xl border text-[10px] font-semibold transition ${
+        active
+          ? 'border-[#0095FF]/30 bg-[#0095FF]/10 text-[#0095FF]'
+          : 'border-transparent bg-transparent text-[#5C73A1] hover:text-[#0095FF]'
+      }`}
     >
-      <div className="absolute inset-y-1 left-1/2 w-px -translate-x-1/2 bg-slate-300 transition group-hover:bg-[#0C58FE]" />
-    </div>
+      {icon}
+      <span className="leading-none">{label}</span>
+    </Link>
   );
 }
 
@@ -368,36 +272,26 @@ function DesktopOrdersColumn({
   title,
   loading,
   orders,
-  selectedOrderId,
   onSelect,
   currentPickerId,
-  onToggleCollapse,
+  onMarkDone,
+  markingDoneId,
 }: {
   title: string;
   loading: boolean;
   orders: Order[];
-  selectedOrderId: string | null;
   onSelect: (orderId: string) => void;
   currentPickerId?: string | null;
-  onToggleCollapse?: () => void;
+  onMarkDone?: (orderId: string) => void;
+  markingDoneId?: string | null;
 }) {
   return (
-    <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-2">
-      <div className="mb-2 flex w-full items-center justify-between px-1">
-        <h3 className="text-[26px] font-bold leading-none text-[#081A3F]">{title}</h3>
-        <span className="rounded-md bg-white px-2 py-0.5 text-xs text-slate-500">{orders.length}</span>
-        {onToggleCollapse && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="ml-1 flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-100"
-            title="Закрыть колонку"
-          >
-            <span className="text-base leading-none">×</span>
-          </button>
-        )}
+    <div className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-4 flex w-full items-center justify-between px-1">
+        <h3 className="text-[20px] font-bold leading-none text-[#081A3F]">{title}</h3>
+        <span className="rounded-md bg-[#081A3F] px-2 py-0.5 text-xs font-bold text-white">{orders.length}</span>
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-auto pr-1">
+      <div className="min-h-0 flex-1 space-y-3 overflow-auto px-1 pb-1">
         {loading ? (
           <div className="space-y-2">
             {[1, 2].map((i) => (
@@ -405,23 +299,59 @@ function DesktopOrdersColumn({
             ))}
           </div>
         ) : orders.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center text-xs text-slate-500">
-            Пусто
+          <div className="flex h-full min-h-full rounded-xl border border-dashed border-slate-300 [&_img]:h-8 [&_img]:w-auto [&_img]:opacity-30">
+            <EmptyState
+              title="Пусто"
+              subtitle="В этой колонке пока нет заказов."
+            />
           </div>
         ) : (
           orders.map((order) => (
             <div key={order.id} className="rounded-xl transition">
               <OrderCard
                 order={order}
-                onCardClick={(o) => onSelect(o.id)}
+                onCardClick={(o) => {
+                  onSelect(o.id);
+                }}
                 currentPickerId={currentPickerId}
-                showStartButton={order.status !== 'done' && order.status !== 'out_of_stock' && order.status !== 'cancelled'}
-                selected={selectedOrderId === order.id}
+                showStartButton={
+                  order.status !== 'done' &&
+                  order.status !== 'out_of_stock' &&
+                  order.status !== 'cancelled' &&
+                  order.status !== 'collected'
+                }
+                showDoneButton={order.status === 'collected'}
+                onMarkDone={order.status === 'collected' ? onMarkDone : undefined}
+                doneButtonLabel={markingDoneId === order.id ? 'ОБНОВЛЕНИЕ...' : undefined}
               />
             </div>
           ))
         )}
       </div>
     </div>
+  );
+}
+
+function DesktopUserIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M23.6723 18.6666C25.3283 18.6666 26.6708 20.0091 26.6708 21.6651V22.4323C26.6708 23.6247 26.2447 24.7778 25.4693 25.6836C23.3768 28.1283 20.1939 29.3348 16.0001 29.3348C11.8056 29.3348 8.62425 28.1279 6.53584 25.6822C5.76283 24.777 5.33813 23.6257 5.33813 22.4353V21.6651C5.33813 20.0091 6.68061 18.6666 8.33664 18.6666H23.6723ZM23.6723 20.6666H8.33664C7.78518 20.6666 7.33813 21.1136 7.33813 21.6651V22.4353C7.33813 23.1495 7.59295 23.8403 8.05676 24.3835C9.72784 26.3404 12.349 27.3348 16.0001 27.3348C19.6512 27.3348 22.2746 26.3403 23.9499 24.3831C24.4151 23.8396 24.6708 23.1477 24.6708 22.4323V21.6651C24.6708 21.1136 24.2238 20.6666 23.6723 20.6666ZM16.0001 2.67285C19.682 2.67285 22.6667 5.65762 22.6667 9.33952C22.6667 13.0214 19.682 16.0062 16.0001 16.0062C12.3182 16.0062 9.33341 13.0214 9.33341 9.33952C9.33341 5.65762 12.3182 2.67285 16.0001 2.67285ZM16.0001 4.67285C13.4228 4.67285 11.3334 6.76219 11.3334 9.33952C11.3334 11.9168 13.4228 14.0062 16.0001 14.0062C18.5774 14.0062 20.6667 11.9168 20.6667 9.33952C20.6667 6.76219 18.5774 4.67285 16.0001 4.67285Z" fill="currentColor"/>
+    </svg>
+  );
+}
+
+function DesktopDashboardIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+    </svg>
+  );
+}
+
+function DesktopSettingsIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16.0165 3C16.9951 3.01128 17.9699 3.12435 18.9252 3.33738C19.3421 3.43038 19.654 3.77801 19.7013 4.20262L19.9283 6.23841C20.031 7.17315 20.8202 7.88112 21.7611 7.88211C22.014 7.8825 22.2641 7.82984 22.4978 7.72644L24.3653 6.90608C24.7537 6.73546 25.2075 6.82848 25.4975 7.13815C26.8471 8.57952 27.8522 10.3082 28.4372 12.1941C28.5633 12.6008 28.4181 13.0427 28.0754 13.2953L26.4201 14.5155C25.9479 14.8624 25.669 15.4133 25.669 15.9993C25.669 16.5852 25.9479 17.1362 26.4211 17.4839L28.0779 18.7044C28.4207 18.957 28.566 19.399 28.4398 19.8057C27.8551 21.6913 26.8505 23.4199 25.5017 24.8615C25.212 25.1711 24.7586 25.2644 24.3702 25.0942L22.4951 24.2727C21.9587 24.0379 21.3426 24.0723 20.8356 24.3653C20.3287 24.6583 19.9913 25.1749 19.9268 25.757L19.7014 27.7925C19.6549 28.2123 19.3498 28.5576 18.9389 28.6553C17.0077 29.1148 14.9956 29.1148 13.0643 28.6553C12.6535 28.5576 12.3483 28.2123 12.3018 27.7925L12.0767 25.76C12.0106 25.179 11.6727 24.664 11.1661 24.372C10.6596 24.08 10.0445 24.0457 9.50984 24.2792L7.63434 25.1009C7.24587 25.2711 6.79229 25.1777 6.50262 24.8679C5.15308 23.4246 4.1485 21.694 3.56451 19.8064C3.43873 19.3998 3.58406 18.9582 3.92671 18.7057L5.58448 17.4844C6.05667 17.1375 6.33554 16.5865 6.33554 16.0006C6.33554 15.4147 6.05667 14.8637 5.58386 14.5163L3.92713 13.2971C3.58397 13.0446 3.43851 12.6024 3.56473 12.1954C4.14974 10.3095 5.15484 8.58086 6.50441 7.13949C6.79437 6.82981 7.24816 6.73679 7.63657 6.90741L9.50374 7.72763C10.041 7.96341 10.6586 7.92779 11.1679 7.63026C11.675 7.33612 12.0126 6.81896 12.0778 6.23686L12.3046 4.20262C12.3519 3.7778 12.6641 3.43005 13.0813 3.33726C14.0377 3.12456 15.0135 3.01154 16.0165 3ZM16.0167 4.99986C15.4113 5.00699 14.8077 5.05924 14.2107 5.15602L14.0654 6.45891C13.9297 7.67157 13.227 8.74803 12.1741 9.35871C11.1149 9.97756 9.82339 10.052 8.69969 9.55889L7.50197 9.03275C6.73939 9.9583 6.13243 11.0018 5.70494 12.1222L6.76867 12.9051C7.75375 13.6288 8.33554 14.7782 8.33554 16.0006C8.33554 17.223 7.75375 18.3724 6.76971 19.0954L5.7043 19.8803C6.13143 21.0027 6.73848 22.0482 7.50158 22.9755L8.70842 22.4468C9.82588 21.9589 11.1086 22.0303 12.1649 22.6392C13.2213 23.2482 13.926 24.3223 14.0642 25.5368L14.2095 26.8487C15.3957 27.0504 16.6075 27.0504 17.7937 26.8487L17.939 25.5369C18.0734 24.3227 18.7772 23.2449 19.8349 22.6337C20.8925 22.0224 22.1778 21.9507 23.2973 22.4406L24.5032 22.9689C25.2656 22.043 25.8724 20.9993 26.2998 19.8786L25.2359 19.0948C24.2508 18.3711 23.669 17.2217 23.669 15.9993C23.669 14.7769 24.2508 13.6275 25.2347 12.9046L26.2972 12.1215C25.8697 11.0008 25.2626 9.95712 24.4999 9.03141L23.3046 9.55649C22.8175 9.77201 22.2906 9.88294 21.7585 9.88211C19.7989 9.88005 18.1543 8.40473 17.9404 6.45843L17.7952 5.1556C17.2011 5.05893 16.6038 5.00683 16.0167 4.99986ZM15.9998 10.9999C18.7613 10.9999 20.9998 13.2385 20.9998 15.9999C20.9998 18.7614 18.7613 20.9999 15.9998 20.9999C13.2384 20.9999 10.9998 18.7614 10.9998 15.9999C10.9998 13.2385 13.2384 10.9999 15.9998 10.9999ZM15.9998 12.9999C14.343 12.9999 12.9998 14.3431 12.9998 15.9999C12.9998 17.6568 14.343 18.9999 15.9998 18.9999C17.6567 18.9999 18.9998 17.6568 18.9998 15.9999C18.9998 14.3431 17.6567 12.9999 15.9998 12.9999Z" fill="currentColor"/>
+    </svg>
   );
 }

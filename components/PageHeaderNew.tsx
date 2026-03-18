@@ -35,14 +35,7 @@ export function PageHeader({ title, onRefresh }: PageHeaderProps) {
             aria-label="Справка по статусам"
             onClick={() => router.push('/help/statuses')}
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 18h.01M9.09 9a3 3 0 115.82 1c0 1.5-1.5 2-1.5 2m-.41 4h.01M12 4a8 8 0 100 16 8 8 0 000-16z"
-              />
-            </svg>
+            <img src="/icon/reference.svg" alt="" className="h-5 w-5" />
           </button>
           <button
             type="button"

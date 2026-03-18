@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import { getOrderById } from '../../../services/orders.service';
@@ -48,14 +48,16 @@ function getQueueCircleStyle(pos: number | undefined) {
   const p = pos ?? 0;
   if (p === 1) return { bg: '#F13134', text: '#FFFFFF' };
   if (p === 2) return { bg: '#F76D0B', text: '#FFFFFF' };
-  if (p === 3) return { bg: '#F13134', text: '#FFFFFF' };
+  if (p === 3) return { bg: '#F3C611', text: '#000000' };
   return { bg: '#FFFFFF', border: '#1A4ED8', text: '#1A4ED8' };
 }
 
 export default function PickingPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const orderId = params.id as string;
+  const isDesktopOverlay = searchParams.get('desktopOverlay') === '1';
   const { firebaseUser, userProfile, isLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
@@ -66,10 +68,19 @@ export default function PickingPage() {
   const [showComment, setShowComment] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showMarkDoneConfirm, setShowMarkDoneConfirm] = useState(false);
   const [editingQuantity, setEditingQuantity] = useState<{ itemId: string; value: string } | null>(null);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
 
   function handleBack() {
+    if (isDesktopOverlay && typeof window !== 'undefined') {
+      try {
+        window.parent?.postMessage({ type: 'close-order-overlay' }, window.location.origin);
+        return;
+      } catch {
+        // fallback to local navigation below
+      }
+    }
     if (typeof window !== 'undefined' && window.history.length > 1) {
       router.back();
       return;
@@ -115,13 +126,29 @@ export default function PickingPage() {
     return () => { mounted = false; };
   }, [firebaseUser, userProfile?.store_id, isLoading, loadData, router]);
 
+  async function tryStartPickingIfNeeded() {
+    if (!(order?.status === 'not_started' && firebaseUser)) return;
+    try {
+      await startPicking(orderId, firebaseUser.uid);
+    } catch (error) {
+      const code = (error as { code?: string })?.code ?? '';
+      const message = error instanceof Error ? error.message : String(error);
+      const isQuotaError =
+        code.includes('resource-exhausted') ||
+        /quota exceeded/i.test(message);
+      if (!isQuotaError) {
+        throw error;
+      }
+    }
+  }
+
   async function handleQuantityChange(item: OrderItem, delta: number) {
     if (busy) return;
     setBusy(true);
     try {
       const next = Math.max(0, Math.min(item.quantity, (item.quantity_collected ?? 0) + delta));
-      if (order?.status === 'not_started' && firebaseUser && next > 0) {
-        await startPicking(orderId, firebaseUser.uid);
+      if (next > 0) {
+        await tryStartPickingIfNeeded();
       }
       await setQuantityCollected(item.id, next, item.quantity);
       await updateOrderProgress(orderId);
@@ -141,8 +168,8 @@ export default function PickingPage() {
     if (next === current) return;
     setBusy(true);
     try {
-      if (order?.status === 'not_started' && firebaseUser && next > 0) {
-        await startPicking(orderId, firebaseUser.uid);
+      if (next > 0) {
+        await tryStartPickingIfNeeded();
       }
       await setQuantityCollected(item.id, next, item.quantity);
       await updateOrderProgress(orderId);
@@ -156,9 +183,7 @@ export default function PickingPage() {
     if (busy) return;
     setBusy(true);
     try {
-      if (order?.status === 'not_started' && firebaseUser) {
-        await startPicking(orderId, firebaseUser.uid);
-      }
+      await tryStartPickingIfNeeded();
       await markOutOfStock(itemId);
       await updateOrderProgress(orderId);
       await loadData();
@@ -173,9 +198,7 @@ export default function PickingPage() {
     if (current >= item.quantity) return;
     setBusy(true);
     try {
-      if (order?.status === 'not_started' && firebaseUser) {
-        await startPicking(orderId, firebaseUser.uid);
-      }
+      await tryStartPickingIfNeeded();
       await setQuantityCollected(item.id, item.quantity, item.quantity);
       await updateOrderProgress(orderId);
       await loadData();
@@ -217,6 +240,14 @@ export default function PickingPage() {
     setBusy(true);
     try {
       await cancelOrder(orderId);
+      if (isDesktopOverlay && typeof window !== 'undefined') {
+        try {
+          window.parent?.postMessage({ type: 'close-order-overlay' }, window.location.origin);
+          return;
+        } catch {
+          // fallback to local navigation below
+        }
+      }
       router.push('/orders');
     } finally {
       setBusy(false);
@@ -228,6 +259,14 @@ export default function PickingPage() {
     setBusy(true);
     try {
       await restoreOrderToCollecting(orderId, firebaseUser.uid);
+      if (isDesktopOverlay && typeof window !== 'undefined') {
+        try {
+          window.parent?.postMessage({ type: 'close-order-overlay' }, window.location.origin);
+          return;
+        } catch {
+          // fallback to local navigation below
+        }
+      }
       router.push('/orders/collecting');
     } finally {
       setBusy(false);
@@ -250,6 +289,14 @@ export default function PickingPage() {
     setBusy(true);
     try {
       await deleteOrder(orderId);
+      if (isDesktopOverlay && typeof window !== 'undefined') {
+        try {
+          window.parent?.postMessage({ type: 'close-order-overlay' }, window.location.origin);
+          return;
+        } catch {
+          // fallback to local navigation below
+        }
+      }
       router.push('/orders');
     } finally {
       setBusy(false);
@@ -301,17 +348,25 @@ export default function PickingPage() {
             onClick={handleBack}
             className="flex min-h-[30px] items-center gap-2 text-white"
           >
-            <span
-              className="inline-block h-[30px] w-[30px] shrink-0"
-              style={{
-                mask: 'url(/icon/back.svg) no-repeat center',
-                WebkitMask: 'url(/icon/back.svg) no-repeat center',
-                maskSize: 'contain',
-                WebkitMaskSize: 'contain',
-                backgroundColor: '#0C58FE',
-              }}
-            />
-            <span className="font-medium" style={{ fontSize: 17 }}>Назад</span>
+            {isDesktopOverlay ? (
+              <span className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border border-[#0C58FE] text-[#0C58FE]">
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+                </svg>
+              </span>
+            ) : (
+              <span
+                className="inline-block h-[30px] w-[30px] shrink-0"
+                style={{
+                  mask: 'url(/icon/back.svg) no-repeat center',
+                  WebkitMask: 'url(/icon/back.svg) no-repeat center',
+                  maskSize: 'contain',
+                  WebkitMaskSize: 'contain',
+                  backgroundColor: '#0C58FE',
+                }}
+              />
+            )}
+            <span className="font-medium" style={{ fontSize: 17 }}>{isDesktopOverlay ? 'Закрыть' : 'Назад'}</span>
           </button>
           {!['out_of_stock', 'collected'].includes(order.status) && (
             <span className="flex items-center">
@@ -327,10 +382,10 @@ export default function PickingPage() {
             <div
               className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold"
               style={{
-                backgroundColor: circleStyle.bg,
-                color: circleStyle.text,
+                backgroundColor: ['done', 'collected'].includes(order.status) ? '#90B94E' : circleStyle.bg,
+                color: ['done', 'collected'].includes(order.status) ? '#FFFFFF' : circleStyle.text,
                 border:
-                  order.status === 'done'
+                  ['done', 'collected'].includes(order.status)
                     ? '2px solid #90B94E'
                     : `2px solid ${(order.queue_position ?? 0) >= 4 ? '#0C58FE' : '#FF7660'}`,
               }}
@@ -343,20 +398,20 @@ export default function PickingPage() {
                   height={24}
                   className="h-6 w-6 shrink-0"
                 />
-              ) : order.status === 'done' ? (
+              ) : ['done', 'collected'].includes(order.status) ? (
                 <Image
                   src="/icon/galka.svg"
                   alt=""
-                  width={24}
-                  height={24}
-                  className="h-6 w-6 shrink-0"
+                  width={55}
+                  height={55}
+                  className="h-[55px] w-[55px] shrink-0"
                 />
               ) : (
                 order.queue_position ?? '-'
               )}
             </div>
             <span className="mt-auto text-xs" style={{ color: '#5C73A1' }}>
-              {order.status === 'out_of_stock' ? '' : order.status === 'done' ? '' : 'Очередь'}
+              {order.status === 'out_of_stock' ? '' : ['done', 'collected'].includes(order.status) ? '' : 'Очередь'}
             </span>
           </div>
           <div className="h-[50px] w-px shrink-0" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }} aria-hidden />
@@ -798,8 +853,8 @@ export default function PickingPage() {
 
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#08266A]/33 p-0 backdrop-blur-[12px] sm:p-4 sm:items-center">
+          <div className="w-full overflow-hidden rounded-[33px] bg-white p-6 shadow-xl sm:max-w-sm sm:rounded-2xl">
             <p className="mb-6 text-center text-base font-semibold text-slate-900">
               Вы точно хотите удалить заказ?
             </p>
@@ -810,14 +865,14 @@ export default function PickingPage() {
                   setShowDeleteConfirm(false);
                   handleDelete();
                 }}
-                className="flex-1 rounded-xl border-2 border-blue-600 bg-white py-3 font-semibold text-blue-600"
+                className="flex-1 rounded-[33px] border-2 border-blue-600 bg-white py-3 font-semibold text-blue-600"
               >
                 ДА
               </button>
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 rounded-xl bg-red-600 py-3 font-semibold text-white"
+                className="flex-1 rounded-[33px] bg-red-600 py-3 font-semibold text-white"
               >
                 НЕТ
               </button>
@@ -828,8 +883,8 @@ export default function PickingPage() {
 
       {/* Cancel confirmation modal */}
       {showCancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#08266A]/33 p-0 backdrop-blur-[12px] sm:p-4 sm:items-center">
+          <div className="w-full overflow-hidden rounded-[33px] bg-white p-6 shadow-xl sm:max-w-sm sm:rounded-2xl">
             <p className="mb-6 text-center text-base font-semibold text-slate-900">
               Вы точно хотите отменить заказ?
             </p>
@@ -840,14 +895,45 @@ export default function PickingPage() {
                   setShowCancelConfirm(false);
                   handleCancel();
                 }}
-                className="flex-1 rounded-xl border-2 border-blue-600 bg-white py-3 font-semibold text-blue-600"
+                className="flex-1 rounded-[33px] border-2 border-blue-600 bg-white py-3 font-semibold text-blue-600"
               >
                 ДА
               </button>
               <button
                 type="button"
                 onClick={() => setShowCancelConfirm(false)}
-                className="flex-1 rounded-xl bg-red-600 py-3 font-semibold text-white"
+                className="flex-1 rounded-[33px] bg-red-600 py-3 font-semibold text-white"
+              >
+                НЕТ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark done confirmation modal */}
+      {showMarkDoneConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#08266A]/33 p-0 backdrop-blur-[12px] sm:p-4 sm:items-center">
+          <div className="w-full overflow-hidden rounded-[33px] bg-white p-6 shadow-xl sm:max-w-sm sm:rounded-2xl">
+            <p className="mb-6 text-center text-base font-semibold text-slate-900">
+              Вы точно хотите подтвердить, что заказ забрали?
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMarkDoneConfirm(false);
+                  handleMarkDone();
+                }}
+                disabled={markingDone}
+                className="flex-1 rounded-[33px] border-2 border-blue-600 bg-white py-3 font-semibold text-blue-600 disabled:opacity-60"
+              >
+                ДА
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMarkDoneConfirm(false)}
+                className="flex-1 rounded-[33px] bg-red-600 py-3 font-semibold text-white"
               >
                 НЕТ
               </button>
@@ -859,7 +945,7 @@ export default function PickingPage() {
         <div className="fixed inset-x-0 bottom-[92px] z-30 px-4">
           <button
             type="button"
-            onClick={handleMarkDone}
+            onClick={() => setShowMarkDoneConfirm(true)}
             disabled={markingDone}
             className="flex h-[60px] w-full items-center rounded-full bg-[#90B94E] pl-4 pr-[18px] text-sm font-bold text-white shadow-lg disabled:opacity-60"
             style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
@@ -877,7 +963,7 @@ export default function PickingPage() {
           </button>
         </div>
       )}
-      <BottomNav />
+      {!isDesktopOverlay && <BottomNav />}
     </div>
   );
 }

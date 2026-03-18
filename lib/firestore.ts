@@ -143,6 +143,22 @@ export function subscribeToCompletedOrders(
   return onSnapshot(
     q,
     (snapshot) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1fcaac'},body:JSON.stringify({sessionId:'1fcaac',runId:'pfat-investigate-1',hypothesisId:'H1',location:'lib/firestore.ts:subscribeToCompletedOrders:snapshotEntry',message:'completed snapshot callback fired',data:{docCount:snapshot.docs.length,fromCache:snapshot.metadata.fromCache,hasPendingWrites:snapshot.metadata.hasPendingWrites},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      const snapshotTiming = snapshot.docs.slice(0, 10).map((docSnap) => {
+        const data = docSnap.data();
+        const ts = data.picking_finished_at?.toDate ? data.picking_finished_at.toDate() : data.picking_finished_at ?? null;
+        return {
+          id: docSnap.id,
+          status: data.status ?? null,
+          pickingFinishedAtMs: ts instanceof Date ? ts.getTime() : null,
+          rawType: data.picking_finished_at?.constructor?.name ?? typeof data.picking_finished_at,
+        };
+      });
+      // #region agent log
+      fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1fcaac'},body:JSON.stringify({sessionId:'1fcaac',runId:'pfat-investigate-3',hypothesisId:'H7',location:'lib/firestore.ts:subscribeToCompletedOrders:timestampValues',message:'completed snapshot timestamp values sampled',data:{docs:snapshotTiming},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       const orders: Order[] = snapshot.docs.map((docSnap) => {
         const data = docSnap.data();
         return {
@@ -172,10 +188,26 @@ export function subscribeToCompletedOrders(
           comment: data.comment ?? null,
         } as Order;
       });
+      const rawMissingFinishedAt = snapshot.docs
+        .map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            hasValue: Boolean(data.picking_finished_at),
+            valueType: data.picking_finished_at?.constructor?.name ?? typeof data.picking_finished_at,
+          };
+        })
+        .filter((entry) => !entry.hasValue);
       const missingFinishedAtIds = orders
         .filter((o) => !o.picking_finished_at)
         .map((o) => o.id);
+      // #region agent log
+      fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1fcaac'},body:JSON.stringify({sessionId:'1fcaac',runId:'pfat-investigate-2',hypothesisId:'H2',location:'lib/firestore.ts:subscribeToCompletedOrders:missingCheck',message:'evaluated missing picking_finished_at in completed snapshot',data:{docCount:orders.length,missingCount:missingFinishedAtIds.length,missingIds:missingFinishedAtIds.slice(0,10),rawMissingFinishedAt:rawMissingFinishedAt.slice(0,10)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (missingFinishedAtIds.length > 0) {
+        // #region agent log
+        fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1fcaac'},body:JSON.stringify({sessionId:'1fcaac',runId:'pfat-investigate-1',hypothesisId:'H2',location:'lib/firestore.ts:subscribeToCompletedOrders:backfillStart',message:'missing picking_finished_at detected, starting backfill',data:{missingCount:missingFinishedAtIds.length,orderIds:missingFinishedAtIds.slice(0,10)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         // #region agent log
         fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b6abf'},body:JSON.stringify({sessionId:'4b6abf',runId:'post-fix',hypothesisId:'H9',location:'lib/firestore.ts:subscribeToCompletedOrders:backfillStart',message:'backfilling missing picking_finished_at for collected orders',data:{count:missingFinishedAtIds.length,orderIds:missingFinishedAtIds.slice(0,5)},timestamp:Date.now()})}).catch(()=>{});
         // #endregion
@@ -183,7 +215,11 @@ export function subscribeToCompletedOrders(
           missingFinishedAtIds.map((id) =>
             updateDoc(doc(db, ORDERS_COLLECTION, id), { picking_finished_at: serverTimestamp() }),
           ),
-        );
+        ).then((results) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1fcaac'},body:JSON.stringify({sessionId:'1fcaac',runId:'pfat-investigate-1',hypothesisId:'H3',location:'lib/firestore.ts:subscribeToCompletedOrders:backfillResult',message:'backfill write batch settled',data:{total:results.length,rejected:results.filter((r)=>r.status==='rejected').length},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+        });
       }
       // #region agent log
       fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b6abf'},body:JSON.stringify({sessionId:'4b6abf',runId:'picking-finished-at-check-2',hypothesisId:'H5',location:'lib/firestore.ts:subscribeToCompletedOrders:fieldCheck',message:'completed orders field presence',data:{count:orders.length,missingPickingFinishedAtCount:missingFinishedAtIds.length,missingPickingFinishedAtIds:missingFinishedAtIds.slice(0,5)},timestamp:Date.now()})}).catch(()=>{});
@@ -335,7 +371,6 @@ export async function markOrderAsCollecting(
 ): Promise<void> {
   const db = getFirestoreDb();
   const orderRef = doc(db, ORDERS_COLLECTION, orderId);
-
   await runTransaction(db, async (transaction) => {
     const snap = await transaction.get(orderRef);
     if (!snap.exists()) {
@@ -359,6 +394,9 @@ export async function markOrderAsFinished(orderId: string): Promise<void> {
   const db = getFirestoreDb();
   const orderRef = doc(db, ORDERS_COLLECTION, orderId);
 
+  // #region agent log
+  fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1fcaac'},body:JSON.stringify({sessionId:'1fcaac',runId:'pfat-investigate-1',hypothesisId:'H4',location:'lib/firestore.ts:markOrderAsFinished:entry',message:'markOrderAsFinished called',data:{orderId},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4b6abf'},body:JSON.stringify({sessionId:'4b6abf',runId:'picking-finished-at-check',hypothesisId:'H1',location:'lib/firestore.ts:markOrderAsFinished:entry',message:'markOrderAsFinished invoked',data:{orderId},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
@@ -439,6 +477,13 @@ export async function updateOrderItemsProgress(orderId: string): Promise<void> {
 
   const currentOrderData = orderSnapshot.exists() ? orderSnapshot.data() : null;
   const hasPickingFinishedAt = Boolean(currentOrderData?.picking_finished_at);
+  const willWritePickingFinishedAt = status === 'collected' && !hasPickingFinishedAt;
+  // #region agent log
+  fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1fcaac'},body:JSON.stringify({sessionId:'1fcaac',runId:'pfat-investigate-1',hypothesisId:'H5',location:'lib/firestore.ts:updateOrderItemsProgress:decisionPoint',message:'order progress evaluated before update',data:{orderId,status,currentStatus:currentOrderData?.status ?? null,hasPickingFinishedAt,itemsTotal,itemsCollected},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  // #region agent log
+  fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1fcaac'},body:JSON.stringify({sessionId:'1fcaac',runId:'pfat-investigate-2',hypothesisId:'H6',location:'lib/firestore.ts:updateOrderItemsProgress:willWriteTimestamp',message:'calculated whether picking_finished_at will be written',data:{orderId,willWritePickingFinishedAt,status,hasPickingFinishedAt},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   const updatePayload: {
     items_total: number;
     items_collected: number;

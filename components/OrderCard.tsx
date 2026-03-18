@@ -128,7 +128,7 @@ export function OrderCard({
       tabIndex={canOpen ? 0 : undefined}
       onClick={canOpen ? handleCardClick : undefined}
       onKeyDown={(e) => { if (canOpen && e.key === 'Enter') handleCardClick(); }}
-      className={`rounded-2xl shadow-sm ${compact ? 'min-h-[170px] px-3 pt-3 pb-3' : 'h-[210px] px-5 pt-5 pb-5'} ${canOpen ? 'cursor-pointer' : ''}`}
+      className={`rounded-2xl shadow-sm ${compact ? 'min-h-[170px] px-2.5 pt-2.5 pb-2.5' : 'h-[210px] px-5 pt-5 pb-5'} ${canOpen ? 'cursor-pointer' : ''}`}
       style={{
         backgroundColor: cardStyle.bg,
         borderColor: selected ? '#0C58FE' : cardStyle.border,
@@ -136,7 +136,7 @@ export function OrderCard({
         borderWidth: selected ? 3 : (useDoneStyle || isOutOfStockOrder || isCancelledOrder ? 1 : 2),
       }}
     >
-      <div className="flex gap-4">
+      <div className={`flex ${compact ? 'gap-2.5' : 'gap-4'}`}>
         {/* Левая полоса */}
         <div className="flex w-[62px] flex-col items-center gap-1 self-stretch">
           <div className="flex w-full flex-col items-center gap-1">
@@ -173,7 +173,7 @@ export function OrderCard({
             </span>
             {leftLabel && <span className="mt-1 text-xs font-medium text-slate-800">{leftLabel}</span>}
           </div>
-          <div className="mt-auto flex h-[60px] w-full flex-col items-center justify-center gap-1 text-center">
+          <div className={`mt-auto flex w-full flex-col items-center justify-center gap-1 text-center ${compact ? 'h-[52px]' : 'h-[60px]'}`}>
             {order.order_type === 'delivery' ? (
               <>
                 <Image
@@ -231,20 +231,20 @@ export function OrderCard({
             <ProgressBar value={progress} />
           </div>
 
-          <div className={`mt-3 flex w-full items-center justify-between leading-none text-slate-700 ${compact ? 'text-[11px]' : 'text-[13px]'}`}>
-            <span className="flex flex-1 justify-start gap-[5px]">
+          <div className={`mt-3 flex w-full items-center justify-between leading-none text-slate-700 ${compact ? 'text-[10px]' : 'text-[13px]'}`}>
+            <span className={`flex min-w-0 flex-1 justify-start ${compact ? 'gap-1' : 'gap-[5px]'}`}>
               Товаров
-              <span className="font-bold text-[#0A1017]">
+              <span className="truncate font-bold text-[#0A1017]">
                 {order.items_collected ?? 0}/{order.items_total}
               </span>
             </span>
-            <span className="flex flex-1 justify-center gap-[5px]">
+            <span className={`flex min-w-0 flex-1 justify-center ${compact ? 'gap-1' : 'gap-[5px]'}`}>
               До
-              <span className={`font-bold text-[#0A1017] ${compact ? 'text-[11px]' : 'text-[13px]'}`}>
+              <span className={`truncate font-bold text-[#0A1017] ${compact ? 'text-[10px]' : 'text-[13px]'}`}>
                 {formatTime(order.collect_until)}
               </span>
             </span>
-            <span className={`flex flex-1 justify-end font-bold leading-none text-[#0A1017] ${compact ? 'text-[11px]' : 'text-[13px]'}`}>
+            <span className={`flex min-w-0 flex-1 justify-end truncate font-bold leading-none text-[#0A1017] ${compact ? 'text-[10px]' : 'text-[13px]'}`}>
               {formatPrice(order.order_total)}
             </span>
           </div>
@@ -252,7 +252,7 @@ export function OrderCard({
           {showDoneButton && order.status === 'collected' && onMarkDone && (
             <button
               type="button"
-              className={`mt-[36px] flex w-full items-center rounded-full bg-[#90B94E] pl-4 pr-[18px] text-[12px] font-bold text-white ${compact ? 'h-12' : 'h-[60px]'}`}
+              className={`${compact ? 'mt-3' : 'mt-[36px]'} flex w-full items-center rounded-full bg-[#90B94E] pl-4 pr-[18px] text-[12px] font-bold text-white ${compact ? 'h-12' : 'h-[60px]'}`}
               style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -273,7 +273,7 @@ export function OrderCard({
           {isDoneOrder && onCardClick && (
             <button
               type="button"
-              className={`mt-[36px] flex w-full items-center rounded-full border-2 border-[#90B94E] bg-[#FFFFFF] pl-4 pr-[18px] text-[12px] font-bold text-[#90B94E] transition-colors hover:border-[#7EA53F] hover:bg-[#90B94E] hover:text-white ${compact ? 'h-12' : 'h-[60px]'}`}
+              className={`${compact ? 'mt-3' : 'mt-[36px]'} flex w-full items-center rounded-full border-2 border-[#90B94E] bg-[#FFFFFF] pl-4 pr-[18px] text-[12px] font-bold text-[#90B94E] transition-colors hover:border-[#7EA53F] hover:bg-[#90B94E] hover:text-white ${compact ? 'h-12' : 'h-[60px]'}`}
               style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -294,7 +294,7 @@ export function OrderCard({
           {showDetailsButton && !isDoneOrder && onCardClick && (
             <button
               type="button"
-              className={`mt-[36px] flex w-full items-center rounded-full border-2 border-[#90B94E] bg-[#FFFFFF] pl-4 pr-[18px] text-[12px] font-bold text-[#90B94E] transition-colors hover:border-[#7EA53F] hover:bg-[#90B94E] hover:text-white ${compact ? 'h-12' : 'h-[60px]'}`}
+              className={`${compact ? 'mt-3' : 'mt-[36px]'} flex w-full items-center rounded-full border-2 border-[#90B94E] bg-[#FFFFFF] pl-4 pr-[18px] text-[12px] font-bold text-[#90B94E] transition-colors hover:border-[#7EA53F] hover:bg-[#90B94E] hover:text-white ${compact ? 'h-12' : 'h-[60px]'}`}
               style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -315,7 +315,7 @@ export function OrderCard({
           {showStartButton && (onStartPicking || onCardClick || order.status === 'collecting') && (
             order.status === 'collecting' && order.picker_id === currentPickerId ? (
               <div
-                className={`mt-[36px] flex w-full cursor-pointer items-center rounded-full pl-4 pr-[18px] text-[12px] font-bold text-[#0C58FE] ${compact ? 'h-12' : 'h-[60px]'}`}
+                className={`${compact ? 'mt-3' : 'mt-[36px]'} flex w-full cursor-pointer items-center rounded-full pl-4 pr-[18px] text-[12px] font-bold text-[#0C58FE] ${compact ? 'h-12' : 'h-[60px]'}`}
                 style={{ fontFamily: '__Open_Sans_Fallback_e8b307', backgroundColor: '#CFDEFF' }}
                 role="button"
                 tabIndex={0}
@@ -333,7 +333,7 @@ export function OrderCard({
               </div>
             ) : order.status === 'collecting' ? (
               <div
-                className={`mt-[36px] flex w-full cursor-default items-center justify-center rounded-full border-2 border-[#A3BFFA] bg-[#CFDEFF] pl-4 pr-[18px] text-[12px] font-semibold text-[#0C58FE] opacity-30 ${compact ? 'h-12' : 'h-[60px]'}`}
+                className={`${compact ? 'mt-3' : 'mt-[36px]'} flex w-full cursor-default items-center justify-center rounded-full border-2 border-[#A3BFFA] bg-[#CFDEFF] pl-4 pr-[18px] text-[12px] font-semibold text-[#0C58FE] opacity-30 ${compact ? 'h-12' : 'h-[60px]'}`}
                 style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               >
                 <span className={`text-center ${compact ? 'leading-tight' : 'whitespace-nowrap'}`}>ЗАКАЗ УЖЕ СОБИРАЮТ</span>
@@ -341,7 +341,7 @@ export function OrderCard({
             ) : (
               <button
                 type="button"
-                className={`mt-[36px] flex w-full items-center rounded-full bg-[#007BFF] pl-4 pr-[18px] text-[12px] font-bold text-white shadow-md hover:bg-[#0069d9] active:bg-[#0056b3] ${compact ? 'h-12' : 'h-[60px]'}`}
+                className={`${compact ? 'mt-3' : 'mt-[36px]'} flex w-full items-center rounded-full bg-[#007BFF] pl-4 pr-[18px] text-[12px] font-bold text-white shadow-md hover:bg-[#0069d9] active:bg-[#0056b3] ${compact ? 'h-12' : 'h-[60px]'}`}
                 style={{ fontFamily: '__Open_Sans_Fallback_e8b307' }}
               >
                 <span className={`flex min-w-0 flex-1 items-center justify-center text-center ${compact ? 'leading-tight' : 'whitespace-nowrap'}`}>{buttonLabel}</span>

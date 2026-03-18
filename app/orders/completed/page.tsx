@@ -16,13 +16,24 @@ export default function CompletedOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingDoneId, setMarkingDoneId] = useState<string | null>(null);
+  const [markDoneConfirmId, setMarkDoneConfirmId] = useState<string | null>(null);
+  const [showMarkDoneConfirm, setShowMarkDoneConfirm] = useState(false);
 
   const loadOrders = useCallback(() => {
     // данные обновляются в реальном времени через subscribeToCompletedOrders
   }, []);
 
-  async function handleMarkDone(orderId: string) {
+  function requestMarkDone(orderId: string) {
     if (markingDoneId) return;
+    setMarkDoneConfirmId(orderId);
+    setShowMarkDoneConfirm(true);
+  }
+
+  async function confirmMarkDone() {
+    if (!markDoneConfirmId || markingDoneId) return;
+    const orderId = markDoneConfirmId;
+    setShowMarkDoneConfirm(false);
+    setMarkDoneConfirmId(null);
     setMarkingDoneId(orderId);
     try {
       await markOrderDone(orderId);
@@ -96,13 +107,39 @@ export default function CompletedOrdersPage() {
                   showStartButton={false}
                   showDoneButton
                   doneButtonLabel={markingDoneId === order.id ? 'ОБНОВЛЕНИЕ...' : 'ЗАКАЗ ЗАБРАЛИ'}
-                  onMarkDone={handleMarkDone}
+                  onMarkDone={requestMarkDone}
                 />
               </div>
             ))}
           </div>
         )}
       </main>
+      {showMarkDoneConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#08266A]/33 p-0 backdrop-blur-[12px] sm:p-4 sm:items-center">
+          <div className="w-full overflow-hidden rounded-[33px] bg-white p-6 shadow-xl sm:max-w-sm sm:rounded-2xl">
+            <p className="mb-6 text-center text-base font-semibold text-slate-900">Заказ точно забрали?</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={confirmMarkDone}
+                className="flex-1 rounded-[33px] border-2 border-blue-600 bg-white py-3 font-semibold text-blue-600"
+              >
+                ДА
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMarkDoneConfirm(false);
+                  setMarkDoneConfirmId(null);
+                }}
+                className="flex-1 rounded-[33px] bg-red-600 py-3 font-semibold text-white"
+              >
+                НЕТ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <BottomNav />
     </div>
   );
