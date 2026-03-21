@@ -89,6 +89,7 @@ export default function PickingPage() {
   }
 
   const loadData = useCallback(async () => {
+    const t0 = Date.now();
     const [o, list] = await Promise.all([
       getOrderById(orderId),
       getItemsByOrder(orderId),
@@ -98,6 +99,28 @@ export default function PickingPage() {
       orderData?.store_id
         ? list.filter((item) => !item.store_id || item.store_id === orderData.store_id)
         : list;
+
+    // #region agent log
+    fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '1fcaac' },
+      body: JSON.stringify({
+        sessionId: '1fcaac',
+        runId: 'pre',
+        hypothesisId: 'H2',
+        location: 'app/picking/[id]/page.tsx:loadData',
+        message: 'loadData fetched order/items',
+        data: {
+          loadDataMs: Date.now() - t0,
+          fetchedOrderStatus: orderData?.status ?? null,
+          itemsTotal: itemsForStore.length,
+          itemsProcessed: itemsForStore.filter((i) => i.status === 'collected' || i.status === 'out_of_stock').length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     setOrder(orderData);
     setItems(itemsForStore);
   }, [orderId]);
@@ -128,18 +151,67 @@ export default function PickingPage() {
 
   async function tryStartPickingIfNeeded() {
     if (!(order?.status === 'not_started' && firebaseUser)) return;
-    try {
-      await startPicking(orderId, firebaseUser.uid);
-    } catch (error) {
-      const code = (error as { code?: string })?.code ?? '';
-      const message = error instanceof Error ? error.message : String(error);
-      const isQuotaError =
-        code.includes('resource-exhausted') ||
-        /quota exceeded/i.test(message);
-      if (!isQuotaError) {
-        throw error;
-      }
-    }
+    const t0 = Date.now();
+    // #region agent log
+    fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '1fcaac' },
+      body: JSON.stringify({
+        sessionId: '1fcaac',
+        runId: 'pre',
+        hypothesisId: 'H3',
+        location: 'app/picking/[id]/page.tsx:tryStartPickingIfNeeded:entry',
+        message: 'startPicking required (order not_started)',
+        data: { orderStatus: order?.status ?? null },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    // ВАЖНО: не блокируем UI ожиданием startPicking.
+    // Даже если startPicking сработает позже, setQuantityCollected + updateOrderProgress обновят прогресс сразу.
+    startPicking(orderId, firebaseUser.uid)
+      .then(() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '1fcaac' },
+          body: JSON.stringify({
+            sessionId: '1fcaac',
+            runId: 'post-fix',
+            hypothesisId: 'H3',
+            location: 'app/picking/[id]/page.tsx:tryStartPickingIfNeeded:exit',
+            message: 'startPicking resolved',
+            data: { tryStartPickingIfNeededMs: Date.now() - t0, isQuotaError: false },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
+      })
+      .catch((error) => {
+        const code = (error as { code?: string })?.code ?? '';
+        const message = error instanceof Error ? error.message : String(error);
+        const isQuotaError =
+          code.includes('resource-exhausted') || /quota exceeded/i.test(message);
+
+        // #region agent log
+        fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '1fcaac' },
+          body: JSON.stringify({
+            sessionId: '1fcaac',
+            runId: 'post-fix',
+            hypothesisId: 'H3',
+            location: 'app/picking/[id]/page.tsx:tryStartPickingIfNeeded:exit',
+            message: 'startPicking rejected (quota tolerated or not)',
+            data: { tryStartPickingIfNeededMs: Date.now() - t0, isQuotaError },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
+
+        // Не блокируем сценарий. Дальше прогресс считается по item'ам.
+      });
   }
 
   async function handleQuantityChange(item: OrderItem, delta: number) {
@@ -147,12 +219,40 @@ export default function PickingPage() {
     setBusy(true);
     try {
       const next = Math.max(0, Math.min(item.quantity, (item.quantity_collected ?? 0) + delta));
+      const t0 = Date.now();
       if (next > 0) {
         await tryStartPickingIfNeeded();
       }
+      const tAfterTryStart = Date.now();
       await setQuantityCollected(item.id, next, item.quantity);
+      const tAfterSetQuantity = Date.now();
       await updateOrderProgress(orderId);
+      const tAfterUpdateProgress = Date.now();
       await loadData();
+      const tAfterLoad = Date.now();
+
+      // #region agent log
+      fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '1fcaac' },
+        body: JSON.stringify({
+          sessionId: '1fcaac',
+          runId: 'pre',
+          hypothesisId: 'H3',
+          location: 'app/picking/[id]/page.tsx:handleQuantityChange',
+          message: 'quantity flow timing (plus/minus)',
+          data: {
+            delta,
+            next,
+            tryStartPickingMs: tAfterTryStart - t0,
+            setQuantityCollectedMs: tAfterSetQuantity - tAfterTryStart,
+            updateOrderProgressMs: tAfterUpdateProgress - tAfterSetQuantity,
+            loadDataMs: tAfterLoad - tAfterUpdateProgress,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
     } finally {
       setBusy(false);
     }
@@ -168,12 +268,40 @@ export default function PickingPage() {
     if (next === current) return;
     setBusy(true);
     try {
+      const t0 = Date.now();
       if (next > 0) {
         await tryStartPickingIfNeeded();
       }
+      const tAfterTryStart = Date.now();
       await setQuantityCollected(item.id, next, item.quantity);
+      const tAfterSetQuantity = Date.now();
       await updateOrderProgress(orderId);
+      const tAfterUpdateProgress = Date.now();
       await loadData();
+      const tAfterLoad = Date.now();
+
+      // #region agent log
+      fetch('http://127.0.0.1:7898/ingest/0f633de0-e10c-4f8b-9ba7-60b5586ab96f', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '1fcaac' },
+        body: JSON.stringify({
+          sessionId: '1fcaac',
+          runId: 'pre',
+          hypothesisId: 'H3',
+          location: 'app/picking/[id]/page.tsx:handleQuantityInputBlur',
+          message: 'quantity flow timing (input blur)',
+          data: {
+            rawValue,
+            next,
+            tryStartPickingMs: tAfterTryStart - t0,
+            setQuantityCollectedMs: tAfterSetQuantity - tAfterTryStart,
+            updateOrderProgressMs: tAfterUpdateProgress - tAfterSetQuantity,
+            loadDataMs: tAfterLoad - tAfterUpdateProgress,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
     } finally {
       setBusy(false);
     }

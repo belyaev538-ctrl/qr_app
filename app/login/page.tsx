@@ -46,7 +46,7 @@ export default function LoginPage() {
       />
 
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-6 sm:max-w-lg sm:px-6 sm:py-8">
-        <p className="text-center text-sm text-white">Click & collect</p>
+        <p className="text-center text-sm font-bold text-white">Click & collect</p>
 
         <div className="mt-5 flex justify-center sm:mt-7">
           <img src="/basket-icon.png" alt="Click & collect" className="h-[108px] w-[136px] object-contain sm:h-[120px] sm:w-[150px]" />
